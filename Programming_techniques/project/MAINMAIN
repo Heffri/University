@@ -1,0 +1,384 @@
+import json
+import os
+import requests
+from PIL import Image, UnidentifiedImageError, ImageEnhance
+
+class ASCIIArt:
+    """
+    An updated class for managing images and their properties for ASCII art conversion, including a 'current' image feature.
+    """
+
+    def __init__(self):
+        """
+        Initializes the ASCIIArt instance with empty dictionaries for storing images and their properties, and a 'current' image attribute.
+        """
+        self.images = {}  # Stores Image objects with their aliases as keys.
+        self.properties = {}  # Stores properties (width, brightness, contrast) for each image by alias.
+        self.current = None  # Tracks the current (most recently loaded or selected) image alias.
+
+    def load_image(self, filepath, alias=None):
+        """
+        Loads an image from the specified filepath and assigns it an alias.
+        Sets the loaded image as the current image.
+        """
+        try:
+            image = Image.open(filepath)
+            alias = alias if alias else os.path.basename(filepath)  # Use the filename as alias if none provided.
+            self.images[alias] = image
+            self.current = alias  # Set the newly loaded image as the current image.
+            # Default properties for a newly loaded image.
+            self.properties[alias] = {"width": 50, "brightness": 1.0, "contrast": 1.0}
+            print(f"Image '{alias}' loaded successfully and set as current.")
+        except UnidentifiedImageError:
+            print(f"Cannot identify image file '{filepath}'.")
+        except FileNotFoundError:
+            print(f"File '{filepath}' not found.")
+        except PermissionError:
+            print(f"No permission to open file '{filepath}'.")
+
+    def info(self, alias=None):
+        """
+        Prints information about all loaded images or a specific image if an alias is provided.
+        """
+        if alias and alias in self.images:
+            # Print info for the specified image
+            self._print_image_info(alias)
+        elif not alias:
+            # Print info for all images if no alias is provided
+            for alias in self.images.keys():
+                self._print_image_info(alias)
+        else:
+            print(f"No image found with alias '{alias}'.")
+
+    def _print_image_info(self, alias):
+        """
+        Prints detailed information about the image identified by the given alias.
+
+        Args:
+            alias (str): The alias of the image to print information for.
+        """
+        if alias in self.images:
+            image = self.images[alias]
+            props = self.properties[alias]
+
+            aspect_ratio = image.height / image.width
+            target_height = int(props["width"] * aspect_ratio / 1.6)  # Adjust for character height in terminals
+
+            header = f" Image Info: {alias} ".center(40, "=")
+            footer = "=" * 40
+
+            print(header)
+            print(f"Alias: {alias}")
+            print(f"Filename: {image.filename}")
+            print(f"Original Size: {image.width}x{image.height}")
+            print(f"ASCII Size: {props['width']}x{target_height}")
+            print(f"Brightness: {props['brightness']}")
+            print(f"Contrast: {props['contrast']}")
+            print(footer)
+        else:
+            print("No image found with alias '{alias}'.")
+
+
+    def render(self, alias=None):
+        if not alias and self.current:
+            alias = self.current  # Use the current image if no alias is specified
+
+        if alias in self.images:
+            ascii_art = self._render_image(alias)  # Get the ASCII art from _render_image
+            if ascii_art:  # Check if ascii_art is not None or empty
+                print("\n".join(ascii_art))
+            else:
+                print(f"Failed to render ASCII art for '{alias}'.")
+        else:
+            print(f"No image found with alias '{alias}'.")
+
+    def render_to_file(self, alias, filename):
+        ascii_art = self._render_image(alias)  # Get the ASCII art from _render_image
+        if ascii_art:  # Check if ascii_art is not None or empty
+            try:
+                with open(filename, 'w') as f:
+                    f.write('\n'.join(ascii_art))
+                print(f"ASCII art saved to '{filename}'.")
+            except Exception as e:
+                print(f"Failed to save ASCII art to '{filename}': {e}")
+        else:
+            print(f"Failed to render ASCII art for '{alias}'.")
+
+
+
+
+    def _render_image(self, alias):
+        if alias in self.images:
+            img = self.images[alias]
+            props = self.properties[alias]
+
+            # Apply brightness and contrast enhancements
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(props['brightness'])
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(props['contrast'])
+
+            # Convert image to grayscale and resize
+            img = img.convert("L")
+            width = int(self.properties[alias]["width"])  # Ensure width is an integer
+            aspect_ratio = img.height / img.width
+            height = int(width * aspect_ratio / 1.2)  # Ensure height is calculated as an integer
+
+            img_resized = img.resize((width, height))
+
+            # Convert to ASCII
+            ascii_art = self._image_to_ascii(img_resized)
+            return ascii_art  # Return the generated ASCII art
+        else:
+            print("No image specified or no current image set.")
+            return []
+
+
+    def _image_to_ascii(self, image):
+        """
+        Converts a PIL Image object to ASCII art strings.
+        """
+        pixels = list(image.getdata())
+        chars = "@#%&?*+=-:,. "
+        ascii_chars = [chars[min(len(chars) - 1, pixel * len(chars) // 256)] for pixel in pixels]
+        return ["".join(ascii_chars[i:i + image.width]) for i in range(0, len(ascii_chars), image.width)]
+
+    def set_property(self, alias, prop, value):
+        """
+        Sets a property for a specified image.
+        """
+        if alias not in self.images:
+            print(f"Image '{alias}' not found.")
+            return
+
+        try:
+            if prop in ["brightness", "contrast"]:
+                self.properties[alias][prop] = float(value)
+            elif prop == "width":
+                self.properties[alias][prop] = int(value)  # Ensure width is stored as an integer
+            else:
+                print(f"Unknown property '{prop}'.")
+            print(f"Property '{prop}' for '{alias}' set to {value}.")
+        except ValueError as e:
+            print(f"Invalid value for '{prop}': {e}")
+
+
+
+
+class SessionManager:
+    """
+    Manages saving and loading sessions for the ASCIIArt studio, allowing the state to be persisted across uses.
+    """
+
+    def __init__(self, art):
+        """
+        Initializes the SessionManager with a reference to an ASCIIArt instance.
+
+        Args:
+            art (ASCIIArt): The ASCIIArt instance to manage sessions for.
+        """
+        self.art = art
+
+    def save_session(self, filename):
+        """
+        Saves the current session to a file. The session includes all loaded images and their properties.
+
+        Args:
+            filename (str): The name of the file to save the session data to.
+
+        Prints a message indicating whether the operation was successful or not.
+        """
+        # Prepare session data for saving.
+        session_data = {
+            alias: {"filepath": img.filename, "properties": props}
+            for alias, img, props in zip(self.art.images.keys(), self.art.images.values(), self.art.properties.values())
+        }
+        try:
+            with open(filename, 'w') as f:
+                json.dump(session_data, f)
+            print(f"Session saved to '{filename}'.")
+        except Exception as e:
+            print(f"Error saving session to '{filename}': {e}")
+
+    def load_session(self, filename_or_url):
+        """
+        Loads a session from a file or URL. This replaces the current session in the ASCIIArt instance.
+
+        Args:
+            filename_or_url (str): The filename or URL to load the session from.
+
+        Prints a message indicating the source of the loaded session and whether the operation was successful or not.
+        """
+        if filename_or_url.startswith("http://") or filename_or_url.startswith("https://"):
+            self._load_session_from_url(filename_or_url)
+        else:
+            self._load_session_from_file(filename_or_url)
+
+    def _load_session_from_file(self, filename):
+        """
+        Loads session data from a specified file and updates the ASCIIArt instance.
+
+        Args:
+            filename (str): The name of the file to load the session from.
+
+        Prints a message indicating whether the operation was successful or not.
+        """
+        try:
+            with open(filename, 'r') as f:
+                session_data = json.load(f)
+            self._load_session_data(session_data)
+            print(f"Session loaded from '{filename}'.")
+        except Exception as e:
+            print(f"Error loading session from '{filename}': {e}")
+
+    def _load_session_from_url(self, url):
+        """
+        Fetches and loads session data from a specified URL and updates the ASCIIArt instance.
+
+        Args:
+            url (str): The URL to load the session from.
+
+        Prints a message indicating whether the operation was successful or not.
+        """
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # Ensure we got a successful response.
+            session_data = response.json()
+            self._load_session_data(session_data)
+            print(f"Session loaded from URL: {url}")
+        except Exception as e:
+            print(f"Error loading session from URL '{url}': {e}")
+
+    def _load_session_data(self, session_data):
+        for alias, data in session_data.items():
+            self.art.load_image(data['filepath'], alias)
+            self.art.properties[alias] = data['properties']
+        if session_data:
+            # Set the last image as the current image
+            last_alias = list(session_data.keys())[-1]
+            self.art.current = last_alias
+
+    
+class CommandHandler:
+    def __init__(self, art, session_manager):
+        self.art = art
+        self.session_manager = session_manager
+
+    def handle_command(self, command_input):
+        command_parts = command_input.split()
+        command = command_parts[0].lower()
+
+        if command == "load" and len(command_parts) > 1:
+            self._handle_load_command(' '.join(command_parts[1:]))
+        elif command == "info":
+            alias = ' '.join(command_parts[1:]) if len(command_parts) > 1 else None
+            self.art.info(alias)
+        if command == "render":
+            if "to" in command_parts:
+                self._handle_render_to_file_command(command_parts)
+            else:
+                alias = ' '.join(command_parts[1:]) if len(command_parts) > 1 else None
+                self.art.render(alias)
+        elif command == "set" and len(command_parts) > 1:
+            self._handle_set_command(' '.join(command_parts[1:]))
+        elif command_input.startswith("save as"):
+            self._handle_save_as_command(command_input)
+        elif command == "help":
+            self._print_help()
+        elif command == "quit":
+            exit()
+        else:
+            print("Invalid command. Type 'help' for a list of commands.")
+
+    def _handle_load_command(self, command_args):
+        """
+        Executes the load command, which can load an individual image or a session.
+
+        Args:
+            command_args (str): The arguments provided with the load command, specifying what to load.
+
+        Depending on the arguments, this function will load either a single image or an entire session.
+        """
+        if command_args.startswith("session"):
+            # Load session command format: "load session <filename|URL>"
+            parts = command_args.split(maxsplit=2)
+            if len(parts) == 2:
+                self.session_manager.load_session(parts[1])
+            else:
+                print("Invalid load session command. Usage: load session <filename|URL>")
+        else:
+            # Load image command format: "load <filename> as <alias>"
+            parts = command_args.split(" as ")
+            if len(parts) == 2:
+                filepath, alias = parts
+                self.art.load_image(filepath.strip(), alias.strip())
+            elif len(parts) == 1:
+                self.art.load_image(parts[0].strip())
+            else:
+                print("Invalid load command. Usage: load <filename> as <alias>")
+
+    def _handle_render_to_file_command(self, command_parts):
+        try:
+            to_index = command_parts.index("to")
+            if to_index > 1 and len(command_parts) > to_index + 1:
+                img_alias = ' '.join(command_parts[1:to_index])
+                output_filename = ' '.join(command_parts[to_index + 1:])
+                self.art.render_to_file(img_alias, output_filename)
+            else:
+                print("Invalid render command. Usage: render [alias] to [filename]")
+        except ValueError:
+            print("Invalid command format. Expected 'to' keyword for specifying output file.")
+
+
+    def _handle_set_command(self, command_args):
+        set_parts = command_args.split(maxsplit=2)
+        if len(set_parts) == 3:
+            self.art.set_property(set_parts[0], set_parts[1], set_parts[2])
+        else:
+            print("Invalid set command. Usage: set [alias] [property] [value]")
+
+    def _handle_save_as_command(self, command_input):
+        save_parts = command_input.split(maxsplit=2)
+        if len(save_parts) < 3:
+            print("Invalid 'save as' command. Usage: save as <filename>")
+        else:
+            filename = save_parts[2]
+            self.session_manager.save_session(filename)
+
+    def _print_help(self):
+        help_text = """
+        ASCII Art Studio Commands:
+        - load <filename|URL> as [alias]: Loads an image file into the studio.
+        - render [alias]: Renders the loaded image as ASCII art using its alias.
+        - render [alias] to <filename>: Renders the loaded image as ASCII art to a new file.
+        - info [alias]: Displays information about the loaded image(s).
+        - set [alias] <property> <value>: Sets a property (brightness, contrast, width, or height).
+        - save as <session filename>: Saves the current session to a file.
+        - help: Displays this help message.
+        - quit: Exits the ASCII Art Studio.
+        """
+        print(help_text)
+
+
+
+def main():
+    """
+    The main entry point of the ASCII art studio program.
+
+    This function initializes the ASCIIArt, SessionManager, and CommandHandler instances,
+    then enters a loop to continuously process user commands until the 'quit' command is entered.
+    """
+    art = ASCIIArt()
+    session_manager = SessionManager(art)
+    command_handler = CommandHandler(art, session_manager)
+
+    print("Welcome to the ASCII Art Studio. Type 'help' for a list of commands.")
+    while True:
+        command_input = input("ASCII Art Studio: ").strip()
+        if command_input:
+            command_handler.handle_command(command_input)
+
+
+
+if __name__ == "__main__":
+    main()

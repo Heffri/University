@@ -1,0 +1,263 @@
+---
+title: 'Laboration 2: Statistisk hypotesprövning'
+author: "Sebastian Babic"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: 
+    toc: true
+  html_document:
+    toc: true
+    df_print: paged
+fontsize: 10pt
+linestretch: 1.2
+geometry: a4paper
+---
+
+
+
+# Sammanfattning
+Laborationen undersökte om molnsådd ökar regnmängden i två experiment: Arizona och Oregon. Grafiska analyser visade att datan inte var normalfördelad, vilket gav oss möjligheten till användning av icke-parametriska tester.
+
+Arizona: Wilcoxons teckenrangtest för beroende stickprov i par visade ingen signifikant skillnad i regnmängd mellan sådda och icke-sådda dagar.
+Oregon: Wilcoxon-Mann-Whitney-test för oberoende stickprov i par visade inte heller någon statistiskt signifikant skillnad.
+
+Slutsatsen är att molnsådd inte visade någon tydlig effekt på regnmängde på någon av områdena enligt dem dataseten som vi har.
+
+\newpage
+
+# Uppgift 1 - Arizona
+```{r}
+arizona <- read.csv("arizona.csv", header = FALSE) # läs csv filen
+
+# skapa variabler
+year <- arizona$V1 
+seed <- arizona$V2
+nonseed <- arizona$V3
+```
+## Uppgift 1.1 - Arizona teori
+Anledningen till att dela in sommaren i tvådagarsperioder är att säkerställa en rättvis jämförelse mellan dagar med molnsådd och utan molnsådd under liknande miljöförhållanden. Genom att jämföra dagar som ligger nära varandra i tid minskar vi effekten av andra faktorer, såsom långsiktiga väderförändringar, som skulle kunna påverka nederbörden. 
+
+Om vi i stället singlade slant varje dag skulle fördelningen mellan dagar med och utan molnsådd kunna bli obalanserad på grund av slumpens variation, särskilt med ett begränsat antal dagar (till exempel de 92 dagarna i en meteorologisk sommar). Detta skulle kunna resultera i en sned fördelning som inte är representativ för en jämn 50/50-fördelning, vilket gör det svårare att dra slutsatser från resultaten.
+
+Slumpmässigheten i att singla slant på dem två dagar säkerställer att valet av dag för molnsådd inte påverkas av några systematiska faktorer, exempelvis om den första dagen i en period tenderar att ha annorlunda väderförhållanden än den andra. Detta eliminerar en potentiell källa till bias och garanterar att resultaten endast reflekterar effekten av molnsådd, inte en skillnad i grundläggande förhållanden mellan de två dagarna.
+
+Ett lämpligt test för att undersöka om molnsåddning verkligen har ett effekt på regnmängd är Wilcoxons teckenrangtest (avsnitt 1.6 i instruktionerna av labben) eftersom vi kan anta att dagarna som mäts är beroende, dvs. miljöförhållanden kan påverkas av den första dagen. Vi kan dessutom anta att datan inte är normalfördelad enligt figur 1. 
+
+\newpage
+
+## Uppgift 1.2 - Arizona test
+```{r}
+seed_mean <- mean(seed)
+seed_sd <- sd(seed)
+nonseed_mean <- mean(nonseed)
+nonseed_sd <- sd(nonseed)
+```
+
+
+```{r, fig.cap ="Histogram med dem teoretiska normal och exponential fördelningar, lådagram och normalfördelningsplott baserat på datasetet om Arizona. Vi kan se hur datan är fördelad mellan dem sådda och icke-sådda dagar."}
+old_par <- par(mfrow = c(2,3))
+
+# sådda
+hist(seed, prob = TRUE, main = "Histogram - Sådda dagar", 
+     xlab = "Regnmängd (inches)", ylab = "Densitet")
+curve(dnorm(x, mean = seed_mean, sd = seed_sd), 
+      col = "red", lwd = 2, add = TRUE) # normalfördelning
+curve(dexp(x, rate = 1 / seed_mean), 
+      col = "blue", lwd = 2, add = TRUE,) # exponentiell fördelning
+legend("topright", legend = c("Normal", "Exponentiell"),
+       col = c("red", "blue"), lty = c(1, 2), cex = 0.8)
+
+
+boxplot(seed, main = "Sådd", xlab = "Status (sådd)", ylab ="Regnmängd (inches)")
+
+
+qqnorm(seed, main = "Sådd", xlab = "Teoretiska kvantiler", ylab ="Kvantiler stickprov")
+qqline(seed, col = "black")
+
+
+# icke sådda
+hist(nonseed, prob = TRUE, main = "Histogram - Icke-sådda dagar", 
+     xlab = "Regnmängd (inches)", ylab = "Densitet")
+curve(dnorm(x, mean = nonseed_mean, sd = nonseed_sd), 
+      col = "red", lwd = 2, add = TRUE) # normalfördelning
+curve(dexp(x, rate = 1 / nonseed_mean), 
+      col = "blue", lwd = 2, add = TRUE) # exponentiell fördelning
+legend("topright", legend = c("Normal", "Exponentiell"),
+       col = c("red", "blue"), lty = c(1, 2), cex = 0.8)
+
+
+boxplot(nonseed, main = "Icke-sådd", xlab = "Status (ej-sådd)", ylab ="Regnmängd (inches)")
+
+
+qqnorm(nonseed, main = "Icke-sådd", xlab = "Teoretiska kvantiler", ylab ="Kvantiler stickprov")
+qqline(nonseed, col = "black")
+
+par(old_par)
+```
+Kan se en exponentialfördelning hos både sådda och ej sådda dagar och regnmängden på respektive 
+dagar. 
+
+Där nollhypotesen $H_0$ är här att det inte finns en skillnad i medianen hos regnmängd mellan dagar med och utan 
+molnsåddning. Det vill säga att $\Delta = \tilde{X}_1 - \tilde{X}_2$ där $X_1, X_2$ är slumpvariabler med någon fördelning (rimligtvis exponential) från respektive dag. Alltså är alternativa hypotesen $H_1$ att det finns en skillnad i medianen. Det vill säga
+\begin{align}
+  \begin{cases}
+    H_0 : \Delta = 0 \\
+    H_1 : \Delta \neq 0
+  \end{cases}
+\end{align}
+
+
+
+```{r}
+wilcox_test <- wilcox.test(seed, nonseed, alternative = "two.sided", paired = TRUE, conf.level = 0.95)
+print(wilcox_test)
+```
+
+Vi använder alltså Wilcoxons teckenrangtest för två parvist beroende stickprov med felrisk $\alpha = 0.05$. Vi förkastar nollhypotesen om p-värdet är mindre än felrisken. Vi ser här att enligt beräkningen ovan så är $0.5107=$`p-value`$>\alpha = 0.05$. Vi kan därmed säga att det inte finns någon statistikt signifikant skillnad i medianen på regnmängd. 
+
+\newpage
+# Uppgift 2 - Oregon
+```{r}
+oregon <- read.csv("oregon.csv", header = FALSE) # läs csv filen
+
+# skapa variabler
+trial <- oregon$V1
+typ1 <- oregon$V2
+typ2 <- oregon$V3
+
+# ta endast med data som matchar "filter" här nere
+nonseed1 <- typ1[trial == 1] # regnmängd i område typ 1 enl ovan, icke molnsådda
+seed1 <- typ1[trial == 2] # regnmängd i typ 1 med molnsådda
+nonseed2 <- typ2[trial == 1] # regnmängd i typ 2 område icke molnsådda
+seed2 <- typ2[trial == 2] # regnmängd i område typ 2 molnsådda
+```
+## Uppgift 2.1 - Oregon teori
+Syftet med att använda ett slumptalsgenerator skulle kunna vara att undvika bias eftersom vi på det sättet undviker att meteorologen alltid beslutar när ett försök skulle genomföras. 
+
+Ett mycket lämpligt test för att jämföra nederbörden mellan molnsådda och icke-molnsådda dagar beror på om vi har normalfördelad data. Om inte så används ett icke-parametriskt test såsom Wilcoxon Mann Whitney test eftersom vi behandlar oberoende stickprov i par (med rimligt antagande om oberoende pga. andra område, dvs 1 och 2). 
+\newpage
+
+## Uppgift 2.2 - Oregon test
+```{r, fig.cap="Histogram med teoretiska normal och exponentialfördelningar, lådagram och normalfördelningsplott för datan av typ 1 (icke molnsådda dagar) som visar hur datan är fördelad."}
+old_par <- par(mfrow = c(2, 3))
+
+# histogram sådda
+seed1_mean <- mean(seed1)
+seed1_sd <- sd(seed1)
+hist(seed1, prob = TRUE, main = "Histogram - Sådda dagar (Typ 1)", 
+     xlab = "Regnmängd (inches)", ylab = "Densitet")
+curve(dnorm(x, mean = seed1_mean, sd = seed1_sd), 
+      col = "red", lwd = 2, add = TRUE) # Normalfördelning
+curve(dexp(x, rate = 1 / seed1_mean), 
+      col = "blue", lwd = 2, add = TRUE) # Exponentiell fördelning
+legend("topright", legend = c("Normal", "Exponentiell"),
+       col = c("red", "blue"), lty = c(1, 2), cex = 0.8)
+
+# boxplot sådda
+boxplot(seed1, main = "Sådda dagar (Typ 1)", xlab = "Status (Sådd)", 
+        ylab = "Regnmängd (inches)")
+
+# QQ sådda
+qqnorm(seed1, main = "QQ-plott - Sådda dagar (Typ 1)", 
+       xlab = "Teoretiska kvantiler", ylab = "Stickprovs-kvantiler")
+qqline(seed1, col = "black")
+
+# histo icke sådda
+nonseed1_mean <- mean(nonseed1)
+nonseed1_sd <- sd(nonseed1)
+hist(nonseed1, prob = TRUE, main = "Histogram - Icke-sådda dagar (Typ 1)", 
+     xlab = "Regnmängd (inches)", ylab = "Densitet")
+curve(dnorm(x, mean = nonseed1_mean, sd = nonseed1_sd), 
+      col = "red", lwd = 2, add = TRUE) # Normalfördelning
+curve(dexp(x, rate = 1 / nonseed1_mean), 
+      col = "blue", lwd = 2, add = TRUE) # Exponentiell fördelning
+legend("topright", legend = c("Normal", "Exponentiell"),
+       col = c("red", "blue"), lty = c(1, 2), cex = 0.8)
+
+# boxplot icke sådda
+boxplot(nonseed1, main = "Icke-sådda dagar (Typ 1)", xlab = "Status (Ej sådd)", 
+        ylab = "Regnmängd (inches)")
+
+# QQ sådda
+qqnorm(nonseed1, main = "QQ-plott - Icke-sådda dagar (Typ 1)", 
+       xlab = "Teoretiska kvantiler", ylab = "Stickprovs-kvantiler")
+qqline(nonseed1, col = "black")
+
+par(old_par)
+```
+
+Det visar sig att datan inte är normalfördelad men det är svårt att avgöra om den exakta fördelningen pga vad som kan anses vara lågt antal datapunkter (35 totalt men endast 13 av typ 1). Men vi kan ändå se med hyfsat säkerhet att datan inte är normalfördelad som ger oss möjligheten att använda följande test. 
+
+Med nollhypotesen $H_0$: medianen för regnmängden är lika för sådda och icke-sådda dagar. Vi kollar på medianen eftersom det är det som testet som används testar. Alternativa hypotesen $H_1$: medianen för regnmängden är större för sådda dagar. Vi genomför då testet.
+
+```{r}
+wilcox.test(seed1, nonseed1, alternative = "greater", conf.level = 0.95)
+```
+
+Det ger oss alltså p-värdet på $0.3369$ som är absolut större än vårat felrisk på $0.05$. Därmed så kan vi säga att det inte finns en signifikant effekt och vi förkastar ej nollhypotesen, dvs. $0.3369 = p > \alpha = 0.05$. Det vill säga medianen i regnmängd är lika för sådda och icke-sådda dagar. För att vi ska göra detta så kan vi göra en vidare analys genom att titta på typ 2. 
+
+```{r, fig.cap="Histogram med teoretiska normal och exponentialfördelningar, lådagram och normalfördelningsplott för typ 2 (molnsådda dagar) som visar hur datan i Oregon är fördelad."}
+old_par <- par(mfrow = c(2, 3))
+
+# hist typ 2 - sådd
+seed2_mean <- mean(seed2)
+seed2_sd <- sd(seed2)
+hist(seed2, prob = TRUE, main = "Histogram - Sådda dagar (Typ 2)", 
+     xlab = "Regnmängd (inches)", ylab = "Densitet")
+curve(dnorm(x, mean = seed2_mean, sd = seed2_sd), 
+      col = "red", lwd = 2, add = TRUE) # Normalfördelning
+curve(dexp(x, rate = 1 / seed2_mean), 
+      col = "blue", lwd = 2, add = TRUE) # Exponentiell fördelning
+legend("topright", legend = c("Normal", "Exponentiell"),
+       col = c("red", "blue"), lty = c(1, 2), cex = 0.8)
+
+# lådagram typ 2 - sådd
+boxplot(seed2, main = "Sådda dagar (Typ 2)", xlab = "Status (Sådd)", 
+        ylab = "Regnmängd (inches)")
+
+# QQ typ 2 - sådd
+qqnorm(seed2, main = "QQ-plott - Sådda dagar (Typ 2)", 
+       xlab = "Teoretiska kvantiler", ylab = "Stickprovs-kvantiler")
+qqline(seed2, col = "black")
+
+# hist typ 2 - icke sådd
+nonseed2_mean <- mean(nonseed2)
+nonseed2_sd <- sd(nonseed2)
+hist(nonseed2, prob = TRUE, main = "Histogram - Icke-sådda dagar (Typ 2)", 
+     xlab = "Regnmängd (inches)", ylab = "Densitet")
+curve(dnorm(x, mean = nonseed2_mean, sd = nonseed2_sd), 
+      col = "red", lwd = 2, add = TRUE) # Normalfördelning
+curve(dexp(x, rate = 1 / nonseed2_mean), 
+      col = "blue", lwd = 2, add = TRUE) # Exponentiell fördelning
+legend("topright", legend = c("Normal", "Exponentiell"),
+       col = c("red", "blue"), lty = c(1, 2), cex = 0.8)
+
+# lådagram tpy 2 - icke sådd
+boxplot(nonseed2, main = "Icke-sådda dagar (Typ 2)", xlab = "Status (Ej sådd)", 
+        ylab = "Regnmängd (inches)")
+
+# QQ typ 2 - icke sådd
+qqnorm(nonseed2, main = "QQ-plott - Icke-sådda dagar (Typ 2)", 
+       xlab = "Teoretiska kvantiler", ylab = "Stickprovs-kvantiler")
+qqline(nonseed2, col = "black")
+
+# Återställ plotting-parametrar
+par(old_par)
+
+```
+
+Även här ser vi att vi inte har en normalfördelning men kan fortfarande inte vara säker på exakt vilket fördelning det är återigen pga. dem låga antal datapunkter. Vi verkar gå mot en exponentialfördelning ändå. Eftersom vi jobbar med oberoende stickprov i par med okänt fördelning är Wilcoxon Mann Whitney testet återigen lämplig. 
+
+```{r}
+wilcox.test(seed2, nonseed2, alternative = "greater", conf.level = 0.95)
+```
+Även här ser vi att p-värdet $0.1194$ är större än felrisken på $0.05$ och vi förkastar därmed ej nollhypotesen baserad på två separata tester, en på typ 1 (försök genomfördes ej) och typ 2 (försök genomfördes).
+
+Vi ser att vi får varning om `ties` när vi gör denna test. Det orsakas av data med samma värde, för att se om det påverkar vårat slutsats kan vi undersöka just hur många ties vi har. 
+
+```{r}
+table(seed2)
+table(nonseed2)
+```
+
+Vi har alltså endast samma datavärdet = $0$ som inte leder till några problem. 

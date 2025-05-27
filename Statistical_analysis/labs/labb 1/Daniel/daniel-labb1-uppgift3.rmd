@@ -1,0 +1,129 @@
+# Uppgift 3: Explorativ dataanalys
+
+Vi ska utforska csv-filen "olvinsprit.csv" som har 4 variabler "Land", "beer", "vin", och "sprit", där den genomsnittliga konsumtionen har mätts i 18 st OECD-länder.
+
+```{r}
+data <- read.csv("olvinsprit.csv", header = TRUE)
+
+land <- data$Land
+beer <- data$beer
+vin <- data$vin
+sprit <- data$sprit
+```
+
+Vi kan börja utforska om någon alkoholtyp kan anses vara normalfördelad och gör detta först genom att skapa histogram för vardera alkoholtyp där vi även ritar in kurvan för en normalfördelning med väntevärde = medelvärdet av alkoholtypen samt standardavvikelse = standardavvikelsen för alkoholtypen.
+
+Från figur 12 ser ölkonsumtionen ut att kunna vara normalfördelad medan vin- och spritkonsumtionen mer liknar en exponentialfördelning.
+
+```{r, fig.cap = "Data från öl, vin- och spritkonsumtion plottat med histogram och jämförd med den teoretiska normalfördelningen, representerad av kurvan."}
+
+old_par <- par(mfrow = c(1, 3)) # 1 rad, 3 kolonner
+
+hist(beer, prob = TRUE, main = "Histogram Ölkonsumtion", 
+     xlab = "Ölkonsumtion per land", ylab ="Densitet")
+x <- seq(from = 20, to = 160, length.out = 100)
+lines(x, dnorm(x, mean(beer), sd(beer)))
+
+hist(vin, prob = TRUE, main = "Histogram Vinkonsumtion", 
+     xlab = "Vinkonsumtion per land", ylab ="Densitet")
+x <- seq(from = 0, to = 60, length.out = 100)
+lines(x, dnorm(x, mean(vin), sd(vin)))
+
+hist(sprit, prob = TRUE, main = "Histogram Spritkonsumtion", 
+     xlab = "Spritkonsumtion per land", ylab ="Densitet")
+x <- seq(from = 2, to = 9, length.out = 100)
+lines(x, dnorm(x, mean(sprit), sd(sprit)))
+
+par(old_par)
+```
+
+```{r, fig.cap = "Normalfördelningsplottar som visar hur nära alkoholkonsumtionen för alla länder av öl, vin och sprit ligger den teoretiska normalfördelningen."}
+
+old_par <- par(mfrow = c(1, 3)) # 1 rad, 3 kolonner
+
+qqnorm(beer, main = "Ölkonsumtion", xlab = "Teoretiska kvantiler", ylab = "Kvantiler stickprov")
+qqline(beer)
+
+qqnorm(vin, main = "Vinkonsumtion", xlab = "Teoretiska kvantiler", ylab = "Kvantiler stickprov")
+qqline(vin)
+
+qqnorm(sprit, main = "Spritkonsumtion", xlab = "Teoretiska kvantiler", ylab = "Kvantiler stickprov")
+qqline(sprit)
+
+par(old_par)
+```
+
+Vi kan fortsätta utforska om någon av vektorerna öl, vin eller sprit kommer från en normalfördelning genom att använda normalfördelningsplottar. Vi ser i figur 13 att det är svårare att dra någon slutsats här men spritkonsumtionen avviker något mer än de andra från den räta linjen vilket även här talar för att den ej är normalfördelad.
+
+För att jämföra alkoholkonsumtionen av öl, vin och sprit mellan länderna kan vi jämföra detta i 3 stolpdiagram, ett för respektive alkoholtyp.
+
+```{r, fig.cap = "Stopldiagram med genomsnittlig ölkonsumtion samt en horisontell linje som visar medelkonsumtionen för alla länder."}
+ 
+barplot(beer, names.arg = land, xlab ="Länder",
+        ylab ="Ölkonsumtion", col ="gold",
+        main ="Genomsnittlig ölkonsumtion i 18 OECD-länder",
+        cex.names=.29)
+
+abline(mean(beer), 0)
+```
+
+```{r, fig.cap = "Stopldiagram med genomsnittlig vinkonsumtion samt en horisontell linje som visar medelkonsumtionen för alla länder."}
+barplot(vin, names.arg = land, xlab ="Länder",
+        ylab ="Vinkonsumtion", col ="red",
+        main ="Genomsnittlig vinkonsumtion i 18 OECD-länder",
+        cex.names=.29)
+
+abline(mean(vin), 0)
+```
+
+```{r, fig.cap = "Stopldiagram med genomsnittlig spritkonsumtion samt en horisontell linje som visar medelkonsumtionen för alla länder."}
+barplot(sprit, names.arg = land, xlab ="Länder",
+        ylab ="Spritkonsumtion", col ="lightgrey",
+        main ="Genomsnittlig spritkonsumtion i 18 OECD-länder",
+        cex.names=.29)
+
+abline(mean(sprit), 0)
+```
+
+\newpage
+
+Vi ser från figurerna 14, 15 och 16 att Sverige verkligen inte avviker i någon av öl, vin- och spritkonsumtion. Vi är landet lagom. 
+
+Från figur 14 ser vi att Irland har överlägset högst ölkonsumtion medan figur 15 visar att Italien har högst vinkonsumtion följt av Frankrike. I figur 16 ser vi att högsta spritkonsumtionen sker i Japan, även där följt av Frankrike. Från stolpdiagrammen går det även att se att Tyskland är det enda landet som ligger över medel i samtliga alkoholtyper.
+
+Ett någorlunda gemensamt drag hos de extrema länderna i öl- och vinkonsumtion är att de tenderar att endast ligga högt i den ena av dessa. Detta kan klart ses i figur 17 där de som ligger allra högst i antingen öl- eller vinkonsumtion ligger bland de lägsta i den andra. 
+
+Bland övriga länder kan man istället se en ganska tydlig positiv korrelation där ökad ölkonsumtion medför ökad vinkonsumtion. Samband mellan öl-sprit samt vin-sprit är svårare att säga något om.
+
+```{r, fig.cap = "Scatterplot som jämför öl- och vinkonsumtionen i 18 OECD-länder."}
+plot(beer, vin, xlab = "Ölkonsumtion", ylab = "Vinkonsumtion")
+text(beer, vin, land, cex = 0.5, pos = 1)
+```
+
+```{r, fig.cap = "Scatterplot som jämför öl- och spritkonsumtionen i 18 OECD-länder."}
+plot(beer, sprit, xlab = "Ölkonsumtion", ylab = "Spritkonsumtion")
+text(beer, sprit, land, cex = 0.5, pos = 1)
+```
+
+```{r, fig.cap = "Scatterplot som jämför sprit- och vinkonsumtionen i 18 OECD-länder."}
+plot(sprit, vin, xlab = "Spritkonsumtion", ylab = "Vinkonsumtion")
+text(sprit, vin, land, cex = 0.5, pos = 1)
+```
+
+Vi kan också kolla på den totala alkoholkonsumtionen i länderna. Detta kan illustreras på ett smidigt sätt med ett stolpdiagram, figur 20. Här ser vi att Norge har lägsta totalkonsumtionen, tätt följt av Sverige och Japan. 
+
+Om man dock tänker sig att de negativa effekterna av alkohol är starkt korrelerad med procenten, vilket nog ändå får sägas rimligt blir detta dock en missvisande bild. T.ex. Japan hade ju den högsta spritkonsumtionen av samtliga länder, där procenten kan antas vara högre än för öl och vin men eftersom att sprit konsumeras i mindre mängder än öl och vin så ger det inte lika stor effekt på totala konsumtionen.
+
+```{r, fig.cap = "Totala alkoholkonsumtionen i 18 OECD-länder."}
+
+total_alk_kons = beer + vin + sprit # Skapa en vektor med totala alkoholkonsumtionen.
+
+barplot(total_alk_kons, names.arg = land, xlab ="Länder",
+        ylab ="Totala alkoholkonsumtionen", col ="black",
+        main ="Totala alkoholkonsumtionen i 18 OECD-länder.",
+        cex.names=.29)
+```
+
+\newpage
+
+Några sammanfattande slutsatser som kan dras är att ölkonsumtionen är den som mest troligt är normalfördelad. Inget land är extremt för samtliga alkoholtyper åt något håll. Enbart Tyskland ligger över medel i samtliga, men är istället inte högst i någon. Figur 20 visar ändå att Irland sticker ut lite när det gäller den totala konsumtionen och det finns en ganska stark negativ korrelation mellan öl- och vinkonsumtion när det gäller extrema länder. Att ett land ligger högt i öl- eller vinkonsumtion tyder alltså inte lika mycket på att de dricker stora mängder alkohol totalt som preferens för en viss alkoholtyp.

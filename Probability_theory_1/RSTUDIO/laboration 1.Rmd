@@ -1,0 +1,160 @@
+---
+title: "Laboration 1"
+author: "Sebastijan Babic"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document:
+    fig_caption: yes
+---
+\renewcommand{\figurename}{Figur} 
+\renewcommand{\tablename}{Tabell}
+
+# Sammanfattning
+Finns 70 nummer. Spelaren väljer 1-11 av dessa nummer i förväg. Svenska Spel väljer 20 av dessa. Spelaren försöker gissa så många av dem 20 valda som möjligt. Vi undersöker fallet där spelaren väljer precis 11 nummer, såkallad Keno 11. Vi får givet vinsterna för Keno 4 och Keno 11 som visar spelarens vinst beroende på antalet korrekta nummer.
+
+Vi undersöker bland annat sannolikheterna att få just $k$ rätt av dem 11, vi visualiserar sedan dessa sannolikheterna i formen av en stapeldiagram och en tabell. Vi beräknar även sannolikheten att vinna något överhuvudtaget i Keno 11, dvs sannolikheten att få minst 5 rätt. 
+
+
+### Tabell 1: Keno 4
+
+| **Antal rätt** | **Vinst (SEK)** |
+|:--------------:|:---------------:|
+|       4        |       120       |
+|       3        |       10        |
+|       2        |        5        |
+|       1        |        0        |
+|       0        |        0        |
+
+### Tabell 2: Keno 11
+
+| **Antal rätt** | **Vinst (SEK)**  |
+|:--------------:|:----------------:|
+|       11       |  5,000,000       |
+|       10       |    80,000        |
+|       9        |     2,000        |
+|       8        |      200         |
+|       7        |       30         |
+|       6        |       10         |
+|       5        |        5         |
+|       4        |        0         |
+|       3        |        0         |
+|       2        |        0         |
+|       1        |        0         |
+|       0        |        0         |
+
+
+
+
+# Uppgift 1
+Vi vill räkna ut sannolikheten att får $0,1 \dots, 11$ rätt på Keno 11. 
+
+## Uppgift 1.1
+Formeln för sannolikheten att få $k$ rätt på Keno 11 för $k \in \{ 0,1,\dots, 11 \}$ kan vi enklast beräkna mha. sannolikhetsfunktionen för en slumpvariabel $X \sim Hyp(N, n, m)$. Vi vet att 
+\[
+p_X(k) = P(X = k) = \frac{\binom{m}{k} \times \binom{N-m}{n-k}}{\binom{N}{n}}.
+\]
+Där vi har att $N$ är totala storleken på utfallsrummet, dvs har vi $N = 70$. Sedan har vi att $n$ är antalet dragningar, dvs har vi att $n = 20$ och slutligen parametern $m$ som är här $m = 11$ då det är antalet lyckade. Så vi har alltså 
+\[
+p_X(k) = P(X = k) = \frac{\binom{11}{k} \times \binom{59}{20-k}}{\binom{70}{20}}.
+\]
+Med andra ord väljer vi först $k$ nummer från de 11 som spelare har valt, detta är $\binom{11}{k}$. Sedan väljer vi $20-k$ nummer från de 59 återstående numren. Dessa är talen spelaren själv inte har valt, detta är $\binom{59}{20-k}$. Slutligen har vi det totala sättet att dra 20 nummer från 70 möjliga. Dvs. nämnaren. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Uppgift 1.2
+Där vi sedan skapar en tabell av dem sannolikheterna som vi har fått av 1.1 via den givna koden som vi skriver klart.  
+
+```{r}
+K <- 11
+p <- rep(0, K + 1) # Vektor med sannolikheterna
+
+for (k in 0:K) {
+  p[k+1] <- choose(11, k) * choose(59, 20 - k) / choose(70, 20)
+}
+
+
+df <- data.frame(k = 0:K, p = round(p, 3))  # Skapa tabell med avrundade värden
+names(df) <- c("Antal rätt", "Sannolikhet")
+knitr::kable(df, digits = 3, caption = "Sannolikheter för att få 0 till 11 rätt i Keno 11")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Uppgift 1.3
+Som vi slutligen vill bekräfta att resultaten stämmer där koden ska ge TRUE om beräkningarna stämmer. 
+
+```{r}
+abs(sum(p) - 1) < 10^(-8)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Uppgift 2
+Gör nu ett stapeldiagram över sannolikheterna för olika antal rätt
+
+```{r}
+names(p) <- 0:K
+barplot(p, xlab = "Antal rätt", ylab = "Sannolikhet", fig.cap="Beskrivande text.")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Uppgift 3
+Beräkna totala vinstsannolikheten, d.v.s. chansen att över huvud taget vinna något (0 SEK = ingen
+vinst). Jämför med vad Svenska Spel påstår.
